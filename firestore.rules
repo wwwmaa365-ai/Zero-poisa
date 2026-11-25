@@ -1,0 +1,410 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Pillar 4.1: Global Safety Net (Default Deny)
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global Primitives
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+    function incoming() {
+      return request.resource.data;
+    }
+    function existing() {
+      return resource.data;
+    }
+    function isSignedIn() {
+      return request.auth != null && request.auth.token.email_verified == true;
+    }
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == "www.maa365@gmail.com" ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid))
+      );
+    }
+
+    // 1. Platform Settings Validation Blueprint
+    function isValidPlatformSettings(data) {
+      return data.keys().hasAll([
+        'ownerName', 'platformName', 'domain', 'commonGromoUrl', 'gromoLinkActive',
+        'commissionType', 'retailerSharePercent', 'adminSharePercent', 'fixedRetailerAmount',
+        'minWithdrawalAmount', 'roundingRule', 'effectiveDate', 'nextRetailerSeq', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'ownerName', 'platformName', 'domain', 'commonGromoUrl', 'gromoLinkActive',
+        'commissionType', 'retailerSharePercent', 'adminSharePercent', 'fixedRetailerAmount',
+        'minWithdrawalAmount', 'roundingRule', 'effectiveDate', 'nextRetailerSeq', 'updatedAt'
+      ]) &&
+      data.ownerName is string && data.ownerName.size() >= 1 && data.ownerName.size() <= 100 &&
+      data.platformName is string && data.platformName.size() >= 1 && data.platformName.size() <= 100 &&
+      data.domain is string && data.domain.size() >= 1 && data.domain.size() <= 100 &&
+      data.commonGromoUrl is string && data.commonGromoUrl.size() >= 5 && data.commonGromoUrl.size() <= 500 &&
+      data.gromoLinkActive is bool &&
+      data.commissionType in ['percentage', 'fixed'] &&
+      data.retailerSharePercent is number && data.retailerSharePercent >= 0 && data.retailerSharePercent <= 100 &&
+      data.adminSharePercent is number && data.adminSharePercent >= 0 && data.adminSharePercent <= 100 &&
+      data.fixedRetailerAmount is number && data.fixedRetailerAmount >= 0 &&
+      data.minWithdrawalAmount is number && data.minWithdrawalAmount >= 0 &&
+      data.roundingRule in ['nearest', 'floor', 'ceil'] &&
+      data.effectiveDate is string && data.effectiveDate.size() <= 40 &&
+      data.nextRetailerSeq is number && data.nextRetailerSeq >= 1001 &&
+      data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // 2. Retailer Public Validation Blueprint (PII Isolated)
+    function isValidRetailerPublic(data) {
+      return data.keys().hasAll(['retailerId', 'uid', 'name', 'status', 'createdAt']) &&
+      data.keys().hasOnly(['retailerId', 'uid', 'name', 'status', 'createdAt']) &&
+      data.retailerId is string && data.retailerId.size() <= 20 && data.retailerId.matches('^FE[0-9]{4,}$') &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+      data.status in ['active', 'inactive'] &&
+      data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    // 3. Retailer Profile Validation Blueprint (Private PII & Wallet)
+    function isValidRetailerProfile(data) {
+      return data.keys().hasAll([
+        'uid', 'retailerId', 'name', 'mobile', 'email', 'city', 'upiId', 'status',
+        'customCommissionPercent', 'walletBalance', 'pendingEarnings', 'totalVerifiedEarnings',
+        'totalWithdrawn', 'totalClicks', 'totalReferrals', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'uid', 'retailerId', 'name', 'mobile', 'email', 'city', 'upiId', 'status',
+        'customCommissionPercent', 'walletBalance', 'pendingEarnings', 'totalVerifiedEarnings',
+        'totalWithdrawn', 'totalClicks', 'totalReferrals', 'createdAt', 'updatedAt'
+      ]) &&
+      data.uid is string && data.uid.size() >= 1 && data.uid.size() <= 128 &&
+      data.retailerId is string && data.retailerId.size() <= 20 && data.retailerId.matches('^FE[0-9]{4,}$') &&
+      data.name is string && data.name.size() >= 1 && data.name.size() <= 100 &&
+      data.mobile is string && data.mobile.size() >= 5 && data.mobile.size() <= 20 &&
+      data.email is string && data.email.size() <= 120 &&
+      data.city is string && data.city.size() <= 80 &&
+      data.upiId is string && data.upiId.size() <= 100 &&
+      data.status in ['active', 'inactive'] &&
+      data.customCommissionPercent is number && data.customCommissionPercent >= -1 && data.customCommissionPercent <= 100 &&
+      data.walletBalance is number && data.walletBalance >= 0 &&
+      data.pendingEarnings is number && data.pendingEarnings >= 0 &&
+      data.totalVerifiedEarnings is number && data.totalVerifiedEarnings >= 0 &&
+      data.totalWithdrawn is number && data.totalWithdrawn >= 0 &&
+      data.totalClicks is number && data.totalClicks >= 0 &&
+      data.totalReferrals is number && data.totalReferrals >= 0 &&
+      data.createdAt is string && data.createdAt.size() <= 40 &&
+      data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // 4. Product Validation Blueprint
+    function isValidProduct(data) {
+      return data.keys().hasAll([
+        'productId', 'title', 'category', 'description', 'imageUrl', 'bannerTag',
+        'buttonText', 'gromoAffiliateUrl', 'useCommonGromoUrl', 'subIdParamName',
+        'estimatedCommission', 'commissionType', 'retailerCommissionValue', 'active', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'productId', 'title', 'category', 'description', 'imageUrl', 'bannerTag',
+        'buttonText', 'gromoAffiliateUrl', 'useCommonGromoUrl', 'subIdParamName',
+        'estimatedCommission', 'commissionType', 'retailerCommissionValue', 'active', 'updatedAt'
+      ]) &&
+      data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 64 &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+      data.category is string && data.category.size() >= 1 && data.category.size() <= 60 &&
+      data.description is string && data.description.size() >= 1 && data.description.size() <= 600 &&
+      data.imageUrl is string && data.imageUrl.size() >= 1 && data.imageUrl.size() <= 500 &&
+      data.bannerTag is string && data.bannerTag.size() <= 80 &&
+      data.buttonText is string && data.buttonText.size() >= 1 && data.buttonText.size() <= 50 &&
+      data.gromoAffiliateUrl is string && data.gromoAffiliateUrl.size() <= 500 &&
+      data.useCommonGromoUrl is bool &&
+      data.subIdParamName is string && data.subIdParamName.size() <= 40 &&
+      data.estimatedCommission is number && data.estimatedCommission >= 0 &&
+      data.commissionType in ['default', 'percentage', 'fixed'] &&
+      data.retailerCommissionValue is number && data.retailerCommissionValue >= 0 &&
+      data.active is bool &&
+      data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // 5. Referral Lead Validation Blueprint
+    function isValidReferralLead(data) {
+      return data.keys().hasAll([
+        'referralRef', 'retailerId', 'retailerUid', 'retailerName', 'productId',
+        'productTitle', 'customerName', 'customerMobile', 'otpStatus', 'otpVerifiedAt',
+        'consentGiven', 'consentTimestamp', 'sessionHash', 'status', 'targetGromoUrl', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'referralRef', 'retailerId', 'retailerUid', 'retailerName', 'productId',
+        'productTitle', 'customerName', 'customerMobile', 'otpStatus', 'otpVerifiedAt',
+        'consentGiven', 'consentTimestamp', 'sessionHash', 'status', 'targetGromoUrl', 'createdAt'
+      ]) &&
+      data.referralRef is string && data.referralRef.size() >= 1 && data.referralRef.size() <= 40 &&
+      data.retailerId is string && data.retailerId.size() >= 1 && data.retailerId.size() <= 20 &&
+      data.retailerUid is string && data.retailerUid.size() >= 1 && data.retailerUid.size() <= 128 &&
+      data.retailerName is string && data.retailerName.size() >= 1 && data.retailerName.size() <= 100 &&
+      data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 64 &&
+      data.productTitle is string && data.productTitle.size() >= 1 && data.productTitle.size() <= 120 &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+      data.customerMobile is string && data.customerMobile.size() == 10 && data.customerMobile.matches('^[6-9][0-9]{9}$') &&
+      data.otpStatus in ['Verified', 'Not Verified'] &&
+      data.otpVerifiedAt is string && data.otpVerifiedAt.size() <= 40 &&
+      data.consentGiven is bool && data.consentGiven == true &&
+      data.consentTimestamp is string && data.consentTimestamp.size() <= 40 &&
+      data.sessionHash is string && data.sessionHash.size() <= 80 &&
+      data.status in ['Clicked', 'Lead Generated', 'Applied', 'Pending', 'Successful', 'Rejected', 'Cancelled'] &&
+      data.targetGromoUrl is string && data.targetGromoUrl.size() <= 500 &&
+      data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    // 6. Application Record Validation Blueprint
+    function isValidApplicationRecord(data) {
+      return data.keys().hasAll([
+        'applicationId', 'referralRef', 'customerName', 'customerMobile', 'productId',
+        'productTitle', 'retailerId', 'retailerUid', 'retailerName', 'status',
+        'gromoCommission', 'retailerCommission', 'adminCommission', 'gromoTxnRef',
+        'verificationDate', 'adminNotes', 'isUnmatched', 'walletCredited', 'createdAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'applicationId', 'referralRef', 'customerName', 'customerMobile', 'productId',
+        'productTitle', 'retailerId', 'retailerUid', 'retailerName', 'status',
+        'gromoCommission', 'retailerCommission', 'adminCommission', 'gromoTxnRef',
+        'verificationDate', 'adminNotes', 'isUnmatched', 'walletCredited', 'createdAt', 'updatedAt'
+      ]) &&
+      data.applicationId is string && data.applicationId.size() >= 1 && data.applicationId.size() <= 64 &&
+      data.referralRef is string && data.referralRef.size() <= 40 &&
+      data.customerName is string && data.customerName.size() >= 1 && data.customerName.size() <= 100 &&
+      data.customerMobile is string && data.customerMobile.size() <= 20 &&
+      data.productId is string && data.productId.size() >= 1 && data.productId.size() <= 64 &&
+      data.productTitle is string && data.productTitle.size() >= 1 && data.productTitle.size() <= 120 &&
+      data.retailerId is string && data.retailerId.size() <= 20 &&
+      data.retailerUid is string && data.retailerUid.size() <= 128 &&
+      data.retailerName is string && data.retailerName.size() <= 100 &&
+      data.status in ['Clicked', 'Lead Generated', 'Applied', 'Pending', 'Successful', 'Rejected', 'Cancelled'] &&
+      data.gromoCommission is number && data.gromoCommission >= 0 &&
+      data.retailerCommission is number && data.retailerCommission >= 0 &&
+      data.adminCommission is number && data.adminCommission >= 0 &&
+      data.gromoTxnRef is string && data.gromoTxnRef.size() <= 80 &&
+      data.verificationDate is string && data.verificationDate.size() <= 40 &&
+      data.adminNotes is string && data.adminNotes.size() <= 400 &&
+      data.isUnmatched is bool &&
+      data.walletCredited is bool &&
+      data.createdAt is string && data.createdAt.size() <= 40 &&
+      data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // 7. Wallet Transaction Validation Blueprint
+    function isValidWalletTransaction(data) {
+      return data.keys().hasAll([
+        'txnRef', 'retailerId', 'retailerUid', 'retailerName', 'type',
+        'amount', 'balanceAfter', 'reason', 'relatedAppId', 'createdBy', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'txnRef', 'retailerId', 'retailerUid', 'retailerName', 'type',
+        'amount', 'balanceAfter', 'reason', 'relatedAppId', 'createdBy', 'createdAt'
+      ]) &&
+      data.txnRef is string && data.txnRef.size() >= 1 && data.txnRef.size() <= 64 &&
+      data.retailerId is string && data.retailerId.size() >= 1 && data.retailerId.size() <= 20 &&
+      data.retailerUid is string && data.retailerUid.size() >= 1 && data.retailerUid.size() <= 128 &&
+      data.retailerName is string && data.retailerName.size() >= 1 && data.retailerName.size() <= 100 &&
+      data.type in ['credit', 'debit', 'withdrawal'] &&
+      data.amount is number && data.amount > 0 &&
+      data.balanceAfter is number && data.balanceAfter >= 0 &&
+      data.reason is string && data.reason.size() >= 1 && data.reason.size() <= 300 &&
+      data.relatedAppId is string && data.relatedAppId.size() <= 64 &&
+      data.createdBy is string && data.createdBy.size() >= 1 && data.createdBy.size() <= 120 &&
+      data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    // 8. Withdrawal Request Validation Blueprint
+    function isValidWithdrawalRequest(data) {
+      return data.keys().hasAll([
+        'withdrawalId', 'retailerId', 'retailerUid', 'retailerName', 'amount',
+        'paymentMethod', 'status', 'paymentRef', 'adminReason', 'requestedAt', 'updatedAt'
+      ]) &&
+      data.keys().hasOnly([
+        'withdrawalId', 'retailerId', 'retailerUid', 'retailerName', 'amount',
+        'paymentMethod', 'status', 'paymentRef', 'adminReason', 'requestedAt', 'updatedAt'
+      ]) &&
+      data.withdrawalId is string && data.withdrawalId.size() >= 1 && data.withdrawalId.size() <= 64 &&
+      data.retailerId is string && data.retailerId.size() >= 1 && data.retailerId.size() <= 20 &&
+      data.retailerUid is string && data.retailerUid.size() >= 1 && data.retailerUid.size() <= 128 &&
+      data.retailerName is string && data.retailerName.size() >= 1 && data.retailerName.size() <= 100 &&
+      data.amount is number && data.amount > 0 &&
+      data.paymentMethod is string && data.paymentMethod.size() >= 1 && data.paymentMethod.size() <= 120 &&
+      data.status in ['Pending', 'Approved', 'Completed', 'Rejected'] &&
+      data.paymentRef is string && data.paymentRef.size() <= 80 &&
+      data.adminReason is string && data.adminReason.size() <= 300 &&
+      data.requestedAt is string && data.requestedAt.size() <= 40 &&
+      data.updatedAt is string && data.updatedAt.size() <= 40;
+    }
+
+    // 9. Notification Validation Blueprint
+    function isValidNotificationItem(data) {
+      return data.keys().hasAll([
+        'notificationId', 'targetUid', 'targetRole', 'title', 'message', 'category', 'createdAt'
+      ]) &&
+      data.keys().hasOnly([
+        'notificationId', 'targetUid', 'targetRole', 'title', 'message', 'category', 'createdAt'
+      ]) &&
+      data.notificationId is string && data.notificationId.size() >= 1 && data.notificationId.size() <= 64 &&
+      data.targetUid is string && data.targetUid.size() <= 128 &&
+      data.targetRole in ['all', 'admin', 'retailer'] &&
+      data.title is string && data.title.size() >= 1 && data.title.size() <= 120 &&
+      data.message is string && data.message.size() >= 1 && data.message.size() <= 500 &&
+      data.category is string && data.category.size() <= 40 &&
+      data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    // 10. Audit Log Validation Blueprint
+    function isValidAuditLog(data) {
+      return data.keys().hasAll(['logId', 'actorUid', 'actorName', 'action', 'details', 'createdAt']) &&
+      data.keys().hasOnly(['logId', 'actorUid', 'actorName', 'action', 'details', 'createdAt']) &&
+      data.logId is string && data.logId.size() >= 1 && data.logId.size() <= 64 &&
+      data.actorUid is string && data.actorUid.size() >= 1 && data.actorUid.size() <= 128 &&
+      data.actorName is string && data.actorName.size() >= 1 && data.actorName.size() <= 120 &&
+      data.action is string && data.action.size() >= 1 && data.action.size() <= 100 &&
+      data.details is string && data.details.size() >= 1 && data.details.size() <= 500 &&
+      data.createdAt is string && data.createdAt.size() <= 40;
+    }
+
+    // Collection 0: Admins Lookup Table
+    match /admins/{adminUid} {
+      allow get: if isSignedIn() && request.auth.uid == adminUid;
+      allow list, write: if false;
+    }
+
+    // Collection 1: Platform Settings
+    match /platform_settings/{settingId} {
+      allow get: if isValidId(settingId);
+      allow list: if false;
+      allow create: if isSignedIn() && isValidId(settingId) && isValidPlatformSettings(incoming()) && (isAdmin() || settingId == 'global');
+      allow update: if isSignedIn() && isValidId(settingId) && isValidPlatformSettings(incoming()) && (
+        isAdmin() ||
+        (incoming().diff(existing()).affectedKeys().hasOnly(['nextRetailerSeq', 'updatedAt']) &&
+         incoming().nextRetailerSeq == existing().nextRetailerSeq + 1)
+      );
+      allow delete: if false;
+    }
+
+    // Collection 2: Public Retailer Directory (No PII)
+    match /retailers_public/{retailerId} {
+      allow get: if isValidId(retailerId);
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(retailerId) && isValidRetailerPublic(incoming()) && (
+        incoming().uid == request.auth.uid || isAdmin()
+      );
+      allow update: if isSignedIn() && isValidId(retailerId) && isValidRetailerPublic(incoming()) && (
+        isAdmin() ||
+        (existing().uid == request.auth.uid &&
+         incoming().uid == existing().uid &&
+         incoming().retailerId == existing().retailerId &&
+         incoming().status == existing().status &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['name']))
+      );
+      allow delete: if false;
+    }
+
+    // Collection 3: Private Retailer Profiles (PII & Wallet Protected)
+    match /retailer_profiles/{uid} {
+      allow get: if isSignedIn() && isValidId(uid) && (request.auth.uid == uid || isAdmin());
+      allow list: if isAdmin();
+      allow create: if isSignedIn() && isValidId(uid) && isValidRetailerProfile(incoming()) && (
+        (request.auth.uid == uid &&
+         incoming().uid == request.auth.uid &&
+         incoming().walletBalance == 0 &&
+         incoming().pendingEarnings == 0 &&
+         incoming().totalVerifiedEarnings == 0 &&
+         incoming().totalWithdrawn == 0) ||
+        isAdmin()
+      );
+      allow update: if isSignedIn() && isValidId(uid) && isValidRetailerProfile(incoming()) && (
+        isAdmin() ||
+        (request.auth.uid == uid &&
+         incoming().uid == existing().uid &&
+         incoming().retailerId == existing().retailerId &&
+         incoming().walletBalance == existing().walletBalance &&
+         incoming().pendingEarnings == existing().pendingEarnings &&
+         incoming().totalVerifiedEarnings == existing().totalVerifiedEarnings &&
+         incoming().totalWithdrawn == existing().totalWithdrawn &&
+         incoming().customCommissionPercent == existing().customCommissionPercent &&
+         incoming().status == existing().status &&
+         incoming().diff(existing()).affectedKeys().hasOnly(['name', 'mobile', 'city', 'upiId', 'totalClicks', 'totalReferrals', 'updatedAt']))
+      );
+      allow delete: if false;
+    }
+
+    // Collection 4: Products (Publicly readable active catalog, Admin writable)
+    match /products/{productId} {
+      allow get: if isValidId(productId);
+      allow list: if resource.data.active == true || isAdmin();
+      allow create: if isSignedIn() && isValidId(productId) && isValidProduct(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(productId) && isValidProduct(incoming()) && isAdmin();
+      allow delete: if isSignedIn() && isValidId(productId) && isAdmin();
+    }
+
+    // Collection 5: Customer Referral Leads (Public consent creation after OTP verification, Owner/Admin read)
+    match /referral_leads/{referralRef} {
+      allow get: if isSignedIn() && isValidId(referralRef) && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow create: if isValidId(referralRef) && isValidReferralLead(incoming()) && incoming().consentGiven == true && (
+        isAdmin() || incoming().status == 'Lead Generated'
+      );
+      allow update: if isSignedIn() && isValidId(referralRef) && isValidReferralLead(incoming()) && isAdmin();
+      allow delete: if false;
+    }
+
+    // Collection 6: Application Tracking & GroMo Verification Records
+    match /applications/{applicationId} {
+      allow get: if isSignedIn() && isValidId(applicationId) && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(applicationId) && isValidApplicationRecord(incoming()) && isAdmin();
+      allow update: if isSignedIn() && isValidId(applicationId) && isValidApplicationRecord(incoming()) && isAdmin();
+      allow delete: if false;
+    }
+
+    // Collection 7: Wallet Transactions Ledger (Immutable, Admin-issued, Retailer readable)
+    match /wallet_transactions/{txnRef} {
+      allow get: if isSignedIn() && isValidId(txnRef) && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(txnRef) && isValidWalletTransaction(incoming()) && isAdmin();
+      allow update, delete: if false;
+    }
+
+    // Collection 8: Withdrawal Requests
+    match /withdrawals/{withdrawalId} {
+      allow get: if isSignedIn() && isValidId(withdrawalId) && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow list: if isSignedIn() && (resource.data.retailerUid == request.auth.uid || isAdmin());
+      allow create: if isSignedIn() && isValidId(withdrawalId) && isValidWithdrawalRequest(incoming()) && (
+        (incoming().retailerUid == request.auth.uid && incoming().status == 'Pending') || isAdmin()
+      );
+      allow update: if isSignedIn() && isValidId(withdrawalId) && isValidWithdrawalRequest(incoming()) && isAdmin();
+      allow delete: if false;
+    }
+
+    // Collection 9: Notifications
+    match /notifications/{notificationId} {
+      allow get: if isSignedIn() && isValidId(notificationId) && (
+        resource.data.targetRole == 'all' ||
+        resource.data.targetUid == request.auth.uid ||
+        isAdmin()
+      );
+      allow list: if isSignedIn() && (
+        resource.data.targetRole == 'all' ||
+        resource.data.targetUid == request.auth.uid ||
+        isAdmin()
+      );
+      allow create: if isSignedIn() && isValidId(notificationId) && isValidNotificationItem(incoming()) && (
+        isAdmin() || incoming().targetUid == request.auth.uid
+      );
+      allow update, delete: if false;
+    }
+
+    // Collection 10: Audit Logs (Immutable)
+    match /audit_logs/{logId} {
+      allow get, list: if isSignedIn() && isAdmin();
+      allow create: if isSignedIn() && isValidId(logId) && isValidAuditLog(incoming()) && (
+        incoming().actorUid == request.auth.uid || isAdmin()
+      );
+      allow update, delete: if false;
+    }
+  }
+}

@@ -1,0 +1,109 @@
+name: Build Zero Poisa Android APK
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+    inputs:
+      build_type:
+        description: 'APK Build Variant (debug installs directly without keystore)'
+        required: true
+        default: 'debug'
+        type: choice
+        options:
+          - debug
+          - release
+
+jobs:
+  build-apk:
+    name: Compile Zero Poisa Android APK (earn.foodexpres.in)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 1. Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+
+      - name: 3. Setup Java JDK 21 (Required for Android Gradle Plugin)
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: 4. Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 5. Install Web Dependencies & Build Production Bundle
+        run: |
+          npm install
+          npm run build
+
+      - name: 6. Install Capacitor Android & Sync Web Assets
+        run: |
+          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          if [ ! -d "android" ]; then
+            npx cap add android
+          fi
+          npx cap sync android
+
+      - name: 7. Apply Zero Poisa App Icon & App Name to Android Resources
+        run: |
+          LOGO_SRC="src/assets/images/zero_poisa_logo_1795587492543.jpg"
+          RES_DIR="android/app/src/main/res"
+          if [ -f "$LOGO_SRC" ] && [ -d "$RES_DIR" ]; then
+            rm -rf "$RES_DIR/mipmap-anydpi-v26"
+            for folder_size in "mipmap-mdpi:48" "mipmap-hdpi:72" "mipmap-xhdpi:96" "mipmap-xxhdpi:144" "mipmap-xxxhdpi:192"; do
+              folder="${folder_size%%:*}"
+              size="${folder_size##*:}"
+              mkdir -p "$RES_DIR/$folder"
+              convert "$LOGO_SRC" -resize "${size}x${size}!" "$RES_DIR/$folder/ic_launcher.png"
+              convert "$LOGO_SRC" -resize "${size}x${size}!" "$RES_DIR/$folder/ic_launcher_round.png"
+              convert "$LOGO_SRC" -resize "${size}x${size}!" "$RES_DIR/$folder/ic_launcher_foreground.png"
+            done
+          fi
+          if [ -f "$RES_DIR/values/strings.xml" ]; then
+            sed -i 's/<string name="app_name">.*<\/string>/<string name="app_name">Zero Poisa<\/string>/g' "$RES_DIR/values/strings.xml"
+            sed -i 's/<string name="title_activity_main">.*<\/string>/<string name="title_activity_main">Zero Poisa<\/string>/g' "$RES_DIR/values/strings.xml"
+          fi
+
+      - name: 8. Make Gradle Wrapper Executable
+        run: chmod +x ./android/gradlew
+
+      - name: 9. Build Ready-to-Install Zero Poisa Debug APK
+        run: |
+          cd android
+          ./gradlew assembleDebug
+          cp app/build/outputs/apk/debug/app-debug.apk ../Zero-Poisa-Retailer-debug.apk
+
+      - name: 10. Build Signed Release APK (Optional - runs if KEYSTORE_BASE64 secret is configured)
+        if: ${{ env.KEYSTORE_BASE64 != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 --decode > android/app/release-keystore.jks
+          cd android
+          ./gradlew assembleRelease \
+            -Pandroid.injected.signing.store.file=$(pwd)/app/release-keystore.jks \
+            -Pandroid.injected.signing.store.password="$KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$KEY_PASSWORD"
+          cp app/build/outputs/apk/release/app-release.apk ../Zero-Poisa-Retailer-release.apk
+
+      - name: 11. Upload Zero Poisa Android APK Artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Zero-Poisa-Android-APK
+          path: |
+            Zero-Poisa-Retailer-debug.apk
+            Zero-Poisa-Retailer-release.apk
+          if-no-files-found: warn
+          retention-days: 30
+

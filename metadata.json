@@ -1,0 +1,6 @@
+{
+  "name": "Affiliate Share & Earn",
+  "description": "Production-ready financial affiliate referral, retailer attribution, and GroMo verification management platform for earn.foodexpres.in.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

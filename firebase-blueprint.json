@@ -1,0 +1,375 @@
+{
+  "entities": {
+    "PlatformSettings": {
+      "title": "PlatformSettings",
+      "description": "Global platform configuration, common GroMo affiliate link, and commission defaults.",
+      "type": "object",
+      "properties": {
+        "ownerName": { "type": "string", "maxLength": 100 },
+        "platformName": { "type": "string", "maxLength": 100 },
+        "domain": { "type": "string", "maxLength": 100 },
+        "commonGromoUrl": { "type": "string", "maxLength": 500 },
+        "gromoLinkActive": { "type": "boolean" },
+        "commissionType": { "type": "string", "enum": ["percentage", "fixed"], "maxLength": 20 },
+        "retailerSharePercent": { "type": "number" },
+        "adminSharePercent": { "type": "number" },
+        "fixedRetailerAmount": { "type": "number" },
+        "minWithdrawalAmount": { "type": "number" },
+        "roundingRule": { "type": "string", "enum": ["nearest", "floor", "ceil"], "maxLength": 20 },
+        "effectiveDate": { "type": "string", "maxLength": 40 },
+        "nextRetailerSeq": { "type": "number" },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "ownerName",
+        "platformName",
+        "domain",
+        "commonGromoUrl",
+        "gromoLinkActive",
+        "commissionType",
+        "retailerSharePercent",
+        "adminSharePercent",
+        "fixedRetailerAmount",
+        "minWithdrawalAmount",
+        "roundingRule",
+        "effectiveDate",
+        "nextRetailerSeq",
+        "updatedAt"
+      ]
+    },
+    "RetailerPublic": {
+      "title": "RetailerPublic",
+      "description": "Publicly readable retailer attribution summary for referral landing pages (PII isolated).",
+      "type": "object",
+      "properties": {
+        "retailerId": { "type": "string", "maxLength": 20, "pattern": "^FE[0-9]{4,}$" },
+        "uid": { "type": "string", "maxLength": 128 },
+        "name": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["active", "inactive"], "maxLength": 20 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["retailerId", "uid", "name", "status", "createdAt"]
+    },
+    "RetailerProfile": {
+      "title": "RetailerProfile",
+      "description": "Full retailer account profile, wallet summary, and custom commission settings (restricted to owner and admin).",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string", "maxLength": 128 },
+        "retailerId": { "type": "string", "maxLength": 20, "pattern": "^FE[0-9]{4,}$" },
+        "name": { "type": "string", "maxLength": 100 },
+        "mobile": { "type": "string", "maxLength": 20 },
+        "email": { "type": "string", "maxLength": 120 },
+        "city": { "type": "string", "maxLength": 80 },
+        "upiId": { "type": "string", "maxLength": 100 },
+        "status": { "type": "string", "enum": ["active", "inactive"], "maxLength": 20 },
+        "customCommissionPercent": { "type": "number" },
+        "walletBalance": { "type": "number" },
+        "pendingEarnings": { "type": "number" },
+        "totalVerifiedEarnings": { "type": "number" },
+        "totalWithdrawn": { "type": "number" },
+        "totalClicks": { "type": "number" },
+        "totalReferrals": { "type": "number" },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "uid",
+        "retailerId",
+        "name",
+        "mobile",
+        "email",
+        "city",
+        "upiId",
+        "status",
+        "customCommissionPercent",
+        "walletBalance",
+        "pendingEarnings",
+        "totalVerifiedEarnings",
+        "totalWithdrawn",
+        "totalClicks",
+        "totalReferrals",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "Product": {
+      "title": "Product",
+      "description": "Financial affiliate product linked to an authorized GroMo affiliate URL.",
+      "type": "object",
+      "properties": {
+        "productId": { "type": "string", "maxLength": 64 },
+        "title": { "type": "string", "maxLength": 120 },
+        "category": { "type": "string", "maxLength": 60 },
+        "description": { "type": "string", "maxLength": 600 },
+        "imageUrl": { "type": "string", "maxLength": 500 },
+        "bannerTag": { "type": "string", "maxLength": 80 },
+        "buttonText": { "type": "string", "maxLength": 50 },
+        "gromoAffiliateUrl": { "type": "string", "maxLength": 500 },
+        "useCommonGromoUrl": { "type": "boolean" },
+        "subIdParamName": { "type": "string", "maxLength": 40 },
+        "estimatedCommission": { "type": "number" },
+        "commissionType": { "type": "string", "enum": ["default", "percentage", "fixed"], "maxLength": 20 },
+        "retailerCommissionValue": { "type": "number" },
+        "active": { "type": "boolean" },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "productId",
+        "title",
+        "category",
+        "description",
+        "imageUrl",
+        "bannerTag",
+        "buttonText",
+        "gromoAffiliateUrl",
+        "useCommonGromoUrl",
+        "subIdParamName",
+        "estimatedCommission",
+        "commissionType",
+        "retailerCommissionValue",
+        "active",
+        "updatedAt"
+      ]
+    },
+    "ReferralLead": {
+      "title": "ReferralLead",
+      "description": "Customer referral attribution record created upon explicit customer consent and backend OTP verification before GroMo redirect.",
+      "type": "object",
+      "properties": {
+        "referralRef": { "type": "string", "maxLength": 40 },
+        "retailerId": { "type": "string", "maxLength": 20 },
+        "retailerUid": { "type": "string", "maxLength": 128 },
+        "retailerName": { "type": "string", "maxLength": 100 },
+        "productId": { "type": "string", "maxLength": 64 },
+        "productTitle": { "type": "string", "maxLength": 120 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerMobile": { "type": "string", "maxLength": 20, "pattern": "^[6-9][0-9]{9}$" },
+        "otpStatus": { "type": "string", "enum": ["Verified", "Not Verified"], "maxLength": 20 },
+        "otpVerifiedAt": { "type": "string", "maxLength": 40 },
+        "consentGiven": { "type": "boolean" },
+        "consentTimestamp": { "type": "string", "maxLength": 40 },
+        "sessionHash": { "type": "string", "maxLength": 80 },
+        "status": {
+          "type": "string",
+          "enum": ["Clicked", "Lead Generated", "Applied", "Pending", "Successful", "Rejected", "Cancelled"],
+          "maxLength": 30
+        },
+        "targetGromoUrl": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "referralRef",
+        "retailerId",
+        "retailerUid",
+        "retailerName",
+        "productId",
+        "productTitle",
+        "customerName",
+        "customerMobile",
+        "otpStatus",
+        "otpVerifiedAt",
+        "consentGiven",
+        "consentTimestamp",
+        "sessionHash",
+        "status",
+        "targetGromoUrl",
+        "createdAt"
+      ]
+    },
+    "ApplicationRecord": {
+      "title": "ApplicationRecord",
+      "description": "Application tracking and manual GroMo verification record managed by Admin.",
+      "type": "object",
+      "properties": {
+        "applicationId": { "type": "string", "maxLength": 64 },
+        "referralRef": { "type": "string", "maxLength": 40 },
+        "customerName": { "type": "string", "maxLength": 100 },
+        "customerMobile": { "type": "string", "maxLength": 20 },
+        "productId": { "type": "string", "maxLength": 64 },
+        "productTitle": { "type": "string", "maxLength": 120 },
+        "retailerId": { "type": "string", "maxLength": 20 },
+        "retailerUid": { "type": "string", "maxLength": 128 },
+        "retailerName": { "type": "string", "maxLength": 100 },
+        "status": {
+          "type": "string",
+          "enum": ["Clicked", "Lead Generated", "Applied", "Pending", "Successful", "Rejected", "Cancelled"],
+          "maxLength": 30
+        },
+        "gromoCommission": { "type": "number" },
+        "retailerCommission": { "type": "number" },
+        "adminCommission": { "type": "number" },
+        "gromoTxnRef": { "type": "string", "maxLength": 80 },
+        "verificationDate": { "type": "string", "maxLength": 40 },
+        "adminNotes": { "type": "string", "maxLength": 400 },
+        "isUnmatched": { "type": "boolean" },
+        "walletCredited": { "type": "boolean" },
+        "createdAt": { "type": "string", "maxLength": 40 },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "applicationId",
+        "referralRef",
+        "customerName",
+        "customerMobile",
+        "productId",
+        "productTitle",
+        "retailerId",
+        "retailerUid",
+        "retailerName",
+        "status",
+        "gromoCommission",
+        "retailerCommission",
+        "adminCommission",
+        "gromoTxnRef",
+        "verificationDate",
+        "adminNotes",
+        "isUnmatched",
+        "walletCredited",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WalletTransaction": {
+      "title": "WalletTransaction",
+      "description": "Immutable ledger entry for retailer wallet credits, debits, and withdrawals.",
+      "type": "object",
+      "properties": {
+        "txnRef": { "type": "string", "maxLength": 64 },
+        "retailerId": { "type": "string", "maxLength": 20 },
+        "retailerUid": { "type": "string", "maxLength": 128 },
+        "retailerName": { "type": "string", "maxLength": 100 },
+        "type": { "type": "string", "enum": ["credit", "debit", "withdrawal"], "maxLength": 20 },
+        "amount": { "type": "number" },
+        "balanceAfter": { "type": "number" },
+        "reason": { "type": "string", "maxLength": 300 },
+        "relatedAppId": { "type": "string", "maxLength": 64 },
+        "createdBy": { "type": "string", "maxLength": 120 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "txnRef",
+        "retailerId",
+        "retailerUid",
+        "retailerName",
+        "type",
+        "amount",
+        "balanceAfter",
+        "reason",
+        "relatedAppId",
+        "createdBy",
+        "createdAt"
+      ]
+    },
+    "WithdrawalRequest": {
+      "title": "WithdrawalRequest",
+      "description": "Retailer payout withdrawal request reviewed by Admin.",
+      "type": "object",
+      "properties": {
+        "withdrawalId": { "type": "string", "maxLength": 64 },
+        "retailerId": { "type": "string", "maxLength": 20 },
+        "retailerUid": { "type": "string", "maxLength": 128 },
+        "retailerName": { "type": "string", "maxLength": 100 },
+        "amount": { "type": "number" },
+        "paymentMethod": { "type": "string", "maxLength": 120 },
+        "status": { "type": "string", "enum": ["Pending", "Approved", "Completed", "Rejected"], "maxLength": 20 },
+        "paymentRef": { "type": "string", "maxLength": 80 },
+        "adminReason": { "type": "string", "maxLength": 300 },
+        "requestedAt": { "type": "string", "maxLength": 40 },
+        "updatedAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "withdrawalId",
+        "retailerId",
+        "retailerUid",
+        "retailerName",
+        "amount",
+        "paymentMethod",
+        "status",
+        "paymentRef",
+        "adminReason",
+        "requestedAt",
+        "updatedAt"
+      ]
+    },
+    "NotificationItem": {
+      "title": "NotificationItem",
+      "description": "System alert or admin broadcast notification.",
+      "type": "object",
+      "properties": {
+        "notificationId": { "type": "string", "maxLength": 64 },
+        "targetUid": { "type": "string", "maxLength": 128 },
+        "targetRole": { "type": "string", "enum": ["all", "admin", "retailer"], "maxLength": 20 },
+        "title": { "type": "string", "maxLength": 120 },
+        "message": { "type": "string", "maxLength": 500 },
+        "category": { "type": "string", "maxLength": 40 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": [
+        "notificationId",
+        "targetUid",
+        "targetRole",
+        "title",
+        "message",
+        "category",
+        "createdAt"
+      ]
+    },
+    "AuditLog": {
+      "title": "AuditLog",
+      "description": "Immutable security and operational audit trail entry.",
+      "type": "object",
+      "properties": {
+        "logId": { "type": "string", "maxLength": 64 },
+        "actorUid": { "type": "string", "maxLength": 128 },
+        "actorName": { "type": "string", "maxLength": 120 },
+        "action": { "type": "string", "maxLength": 100 },
+        "details": { "type": "string", "maxLength": 500 },
+        "createdAt": { "type": "string", "maxLength": 40 }
+      },
+      "required": ["logId", "actorUid", "actorName", "action", "details", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/platform_settings/{settingId}": {
+      "schema": "PlatformSettings",
+      "description": "Global platform configuration and common GroMo affiliate link settings."
+    },
+    "/retailers_public/{retailerId}": {
+      "schema": "RetailerPublic",
+      "description": "Public retailer lookup table (no PII) keyed by permanent Retailer ID (e.g. FE1001)."
+    },
+    "/retailer_profiles/{uid}": {
+      "schema": "RetailerProfile",
+      "description": "Private retailer profile and wallet state keyed by Firebase Auth UID."
+    },
+    "/products/{productId}": {
+      "schema": "Product",
+      "description": "Financial affiliate products managed by Admin."
+    },
+    "/referral_leads/{referralRef}": {
+      "schema": "ReferralLead",
+      "description": "Customer referral attribution records captured prior to GroMo redirect."
+    },
+    "/applications/{applicationId}": {
+      "schema": "ApplicationRecord",
+      "description": "Application tracking and verified GroMo commission records."
+    },
+    "/wallet_transactions/{txnRef}": {
+      "schema": "WalletTransaction",
+      "description": "Immutable retailer wallet transaction ledger."
+    },
+    "/withdrawals/{withdrawalId}": {
+      "schema": "WithdrawalRequest",
+      "description": "Retailer payout withdrawal requests."
+    },
+    "/notifications/{notificationId}": {
+      "schema": "NotificationItem",
+      "description": "Notifications for retailers and admins."
+    },
+    "/audit_logs/{logId}": {
+      "schema": "AuditLog",
+      "description": "System audit log entries."
+    }
+  }
+}

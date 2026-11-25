@@ -1,0 +1,15 @@
+{
+  "appId": "in.foodexpres.zeropoisa",
+  "appName": "Zero Poisa",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https",
+    "allowNavigation": [
+      "earn.foodexpres.in",
+      "*.foodexpres.in",
+      "*.googleapis.com",
+      "*.firebaseapp.com"
+    ]
+  }
+}
