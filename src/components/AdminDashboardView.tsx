@@ -15,6 +15,7 @@ import {
   EmailTemplateId,
 } from '../types';
 import { ResilientImage } from './ResilientImage';
+import { RetailerQrModal } from './RetailerQrModal';
 import {
   calculateCommissionSplit,
   ZERO_POISA_LOGO,
@@ -49,6 +50,7 @@ import {
   Smartphone,
   Terminal,
   Mail,
+  QrCode,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -188,6 +190,7 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
 
   // Module 2: Retailer filters
   const [retailerSearch, setRetailerSearch] = useState('');
+  const [adminQrRetailer, setAdminQrRetailer] = useState<RetailerProfile | null>(null);
 
   // Module 3: Referral filters (Search by Mobile Number, Retailer ID, and OTP Status)
   const [referralSearch, setReferralSearch] = useState('');
@@ -780,7 +783,17 @@ export const AdminDashboardView: React.FC<AdminDashboardViewProps> = ({
                             </div>
                           </td>
                           <td className="py-3.5 px-4 font-mono text-slate-600">
-                            https://{settings.domain}/ref/{r.retailerId}
+                            <div className="flex flex-wrap items-center gap-2">
+                              <span>https://{settings.domain}/ref/{r.retailerId}</span>
+                              <button
+                                type="button"
+                                onClick={() => setAdminQrRetailer(r)}
+                                className="inline-flex items-center gap-1 px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 rounded-lg font-sans font-semibold text-[11px] whitespace-nowrap transition-colors"
+                              >
+                                <QrCode className="w-3.5 h-3.5" />
+                                <span>QR Poster</span>
+                              </button>
+                            </div>
                           </td>
                           <td className="py-3.5 px-4 text-right font-mono">
                             {r.totalClicks} / {r.totalReferrals}
@@ -3406,7 +3419,6 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
 
       - name: 3. Setup Java JDK 21 (Required for Android Gradle Plugin)
         uses: actions/setup-java@v4
@@ -3419,12 +3431,12 @@ jobs:
 
       - name: 5. Install Web Dependencies & Build Production Bundle
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
 
       - name: 6. Install Capacitor Android & Sync Web Assets
         run: |
-          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          npm install @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 --no-save --legacy-peer-deps
           if [ ! -d "android" ]; then
             npx cap add android
           fi
@@ -3432,6 +3444,9 @@ jobs:
 
       - name: 7. Apply Zero Poisa App Icon & App Name to Android Resources
         run: |
+          if ! command -v convert >/dev/null 2>&1; then
+            sudo apt-get update && sudo apt-get install -y imagemagick
+          fi
           LOGO_SRC="src/assets/images/zero_poisa_logo_1795587492543.jpg"
           RES_DIR="android/app/src/main/res"
           if [ -f "$LOGO_SRC" ] && [ -d "$RES_DIR" ]; then
@@ -3493,18 +3508,18 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '22'
-          cache: 'npm'
       - uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: '21'
       - uses: android-actions/setup-android@v3
       - run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
-          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          npm install @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 --no-save --legacy-peer-deps
           if [ ! -d "android" ]; then npx cap add android; fi
           npx cap sync android
+          if ! command -v convert >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y imagemagick; fi
           LOGO_SRC="src/assets/images/zero_poisa_logo_1795587492543.jpg"
           RES_DIR="android/app/src/main/res"
           if [ -f "$LOGO_SRC" ] && [ -d "$RES_DIR" ]; then
@@ -3600,13 +3615,14 @@ jobs:
         uses: android-actions/setup-android@v3
       - name: 4. Build Web Bundle & Sync Capacitor Android
         run: |
-          npm install
+          npm install --legacy-peer-deps
           npm run build
-          npm install @capacitor/core @capacitor/cli @capacitor/android --no-save
+          npm install @capacitor/core@^7 @capacitor/cli@^7 @capacitor/android@^7 --no-save --legacy-peer-deps
           if [ ! -d "android" ]; then npx cap add android; fi
           npx cap sync android
       - name: 5. Apply Zero Poisa App Icon & App Name to Android Resources
         run: |
+          if ! command -v convert >/dev/null 2>&1; then sudo apt-get update && sudo apt-get install -y imagemagick; fi
           LOGO_SRC="src/assets/images/zero_poisa_logo_1795587492543.jpg"
           RES_DIR="android/app/src/main/res"
           rm -rf "$RES_DIR/mipmap-anydpi-v26"
@@ -3714,6 +3730,14 @@ jobs:
           </div>
         )}
       </main>
+
+      <RetailerQrModal
+        isOpen={Boolean(adminQrRetailer)}
+        onClose={() => setAdminQrRetailer(null)}
+        retailer={adminQrRetailer}
+        settings={settings}
+        products={products}
+      />
     </div>
   );
 };

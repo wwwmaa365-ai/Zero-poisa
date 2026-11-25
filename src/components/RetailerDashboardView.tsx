@@ -11,6 +11,7 @@ import {
   EmailLogItem,
 } from '../types';
 import { ResilientImage } from './ResilientImage';
+import { RetailerQrModal } from './RetailerQrModal';
 import { calculateCommissionSplit, ZERO_POISA_LOGO } from '../lib/seedData';
 import {
   Share2,
@@ -43,6 +44,7 @@ import {
   KeyRound,
   BarChart3,
   Mail,
+  QrCode,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -206,6 +208,8 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
   >('sell');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState<string>('All');
   const [showHowItWorksModal, setShowHowItWorksModal] = useState(false);
+  const [qrModalOpen, setQrModalOpen] = useState(false);
+  const [qrModalProductId, setQrModalProductId] = useState('');
 
   // Registration & OTP verification state
   const [authMode, setAuthMode] = useState<'register' | 'recover'>('register');
@@ -791,6 +795,17 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
               <div className="flex sm:hidden items-center gap-2">
                 <button
                   type="button"
+                  onClick={() => {
+                    setQrModalProductId('');
+                    setQrModalOpen(true);
+                  }}
+                  className="w-9 h-9 rounded-full bg-white text-[#0e54b7] border border-white/60 flex items-center justify-center shadow-sm"
+                  title="My Referral QR Code & Shop Poster"
+                >
+                  <QrCode className="w-4 h-4" />
+                </button>
+                <button
+                  type="button"
                   onClick={() => setShowHowItWorksModal(!showHowItWorksModal)}
                   className="w-9 h-9 rounded-full bg-emerald-400/20 border border-white/40 flex items-center justify-center text-white"
                   title="How Referral Attribution Works"
@@ -826,6 +841,18 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
                     <span>Copy Link ({activeRetailer.retailerId})</span>
                   </>
                 )}
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setQrModalProductId('');
+                  setQrModalOpen(true);
+                }}
+                className="min-h-[40px] px-3.5 py-2 bg-white hover:bg-blue-50 text-[#0e54b7] font-bold text-xs rounded-xl flex items-center gap-1.5 transition-colors whitespace-nowrap shrink-0 shadow-sm"
+              >
+                <QrCode className="w-4 h-4" />
+                <span>My QR Code</span>
               </button>
 
               <select
@@ -1240,7 +1267,7 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
                           <Send className="w-4 h-4" />
                           <span>Share on WhatsApp</span>
                         </button>
-                        <div className="grid grid-cols-2 gap-2">
+                        <div className="grid grid-cols-3 gap-2">
                           <button
                             type="button"
                             onClick={() =>
@@ -1250,19 +1277,30 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
                                 product.productId
                               )
                             }
-                            className="min-h-[40px] bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl px-2.5 py-1.5 flex items-center justify-center gap-1.5"
+                            className="min-h-[40px] bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-semibold rounded-xl px-2 py-1.5 flex items-center justify-center gap-1 whitespace-nowrap"
                           >
                             {copiedKey === `prod_${product.productId}` ? (
                               <>
-                                <Check className="w-3.5 h-3.5 text-emerald-600" />
+                                <Check className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
                                 <span>Copied</span>
                               </>
                             ) : (
                               <>
-                                <Copy className="w-3.5 h-3.5" />
+                                <Copy className="w-3.5 h-3.5 shrink-0" />
                                 <span>Copy Link</span>
                               </>
                             )}
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setQrModalProductId(product.productId);
+                              setQrModalOpen(true);
+                            }}
+                            className="min-h-[40px] bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-semibold rounded-xl px-2 py-1.5 flex items-center justify-center gap-1 whitespace-nowrap"
+                          >
+                            <QrCode className="w-3.5 h-3.5 shrink-0" />
+                            <span>QR Code</span>
                           </button>
                           <button
                             type="button"
@@ -1272,10 +1310,10 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
                                 product.productId
                               )
                             }
-                            className="min-h-[40px] bg-blue-50 hover:bg-blue-100 text-[#1363d1] text-xs font-semibold rounded-xl px-2.5 py-1.5 flex items-center justify-center gap-1.5"
+                            className="min-h-[40px] bg-blue-50 hover:bg-blue-100 text-[#1363d1] text-xs font-semibold rounded-xl px-2 py-1.5 flex items-center justify-center gap-1 whitespace-nowrap"
                           >
-                            <ExternalLink className="w-3.5 h-3.5" />
-                            <span>Open Page</span>
+                            <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                            <span>Open</span>
                           </button>
                         </div>
                       </div>
@@ -2057,6 +2095,16 @@ export const RetailerDashboardView: React.FC<RetailerDashboardViewProps> = ({
           </button>
         </div>
       </div>
+
+      <RetailerQrModal
+        isOpen={qrModalOpen}
+        onClose={() => setQrModalOpen(false)}
+        retailer={activeRetailer}
+        settings={settings}
+        products={products}
+        initialProductId={qrModalProductId}
+        onOpenPreview={onOpenReferralPreview}
+      />
     </div>
   );
 };
